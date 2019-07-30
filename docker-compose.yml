@@ -1,0 +1,74 @@
+version: '3.7'
+
+services:
+  db:
+    image: mysql:5.7
+    container_name: mysql
+    hostname: mysql
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./create_database.sql:/docker-entrypoint-initdb.d/create_database.sql
+    environment:
+      - MYSQL_ROOT_PASSWORD=teste12321
+    networks:
+      - desafio
+
+  rabbitmq:
+    image: rabbitmq:3.7-management
+    container_name: rabbitmq
+    hostname: rabbitmq
+    ports:
+      - "15672:15672"
+      - "5672:5672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=teste
+      - RABBITMQ_DEFAULT_PASS=teste12321
+    networks:
+      - desafio
+
+  py:
+    image: py
+    build:
+      context: hello-python/
+      dockerfile: Dockerfile-python
+    container_name: py
+    hostname: py
+    depends_on:
+      - "nd"
+    ports:
+      - "8000:8000"
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_QUEUE=hello
+    #command: python app.py
+    networks:
+      - desafio
+
+  nd:
+    image: nd
+    build:
+      context: hello-node/
+      dockerfile: Dockerfile-node
+    container_name: nd
+    hostname: nd
+    depends_on:
+      - "db"
+      - "rabbitmq"
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_QUEUE=hello
+      - MYSQL_HOST=mysql
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=teste12321
+      - MYSQL_DB=hello
+    command: sh -c "sh wait-for mysql:3306 -t 40 && sh wait-for rabbitmq:5672 -- node app.js"
+    networks:
+      - desafio
+
+volumes: {}
+networks: 
+  desafio:
+    driver: bridge
